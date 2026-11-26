@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Atendimento</title>
+<style>
+  :root{--cor:#1f5fa8;--fundo:#eef1f4;--txt:#1d2329;--sub:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--txt);background:var(--fundo)}
+  .app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:640px;margin:0 auto;background:var(--fundo)}
+  header{display:flex;align-items:center;gap:12px;padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));background:var(--cor);color:#fff}
+  .avatar{width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.22);display:grid;place-items:center;font-weight:700;font-size:18px;flex:none}
+  .tit{flex:1;min-width:0}
+  .tit b{display:block;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tit small{opacity:.85;font-size:12.5px}
+  header button{background:rgba(255,255,255,.15);border:0;color:#fff;padding:9px 13px;border-radius:999px;cursor:pointer;font:inherit;font-size:13px}
+  #demo{font-size:12px;text-align:center;color:var(--sub);padding:6px 10px 0}
+  #chat{flex:1;overflow-y:auto;padding:16px 12px 8px;display:flex;flex-direction:column;gap:8px;-webkit-overflow-scrolling:touch}
+  .msg{max-width:85%;padding:10px 13px;border-radius:16px;line-height:1.42;font-size:15.5px;overflow-wrap:anywhere;animation:in .18s ease-out}
+  .bot{align-self:flex-start;background:#fff;border-bottom-left-radius:4px;box-shadow:0 1px 1px rgba(0,0,0,.06)}
+  .user{align-self:flex-end;background:var(--cor);color:#fff;border-bottom-right-radius:4px}
+  .msg a{color:inherit}
+  .foto{align-self:flex-start;max-width:85%;background:#fff;border-radius:14px;padding:6px;box-shadow:0 1px 1px rgba(0,0,0,.06);animation:in .18s ease-out;cursor:zoom-in;position:relative}
+  .foto img{display:block;width:100%;max-height:320px;object-fit:contain;border-radius:10px;background:#fff;min-height:60px}
+  .foto span{position:absolute;right:12px;bottom:12px;background:rgba(0,0,0,.55);color:#fff;font-size:12px;padding:3px 8px;border-radius:999px}
+  .foto.erro{cursor:default;padding:10px 13px;font-size:13px;color:var(--sub)}
+  .opcoes{display:flex;flex-wrap:wrap;gap:8px;padding:4px 0 6px;animation:in .18s ease-out}
+  .opcao{border:1.5px solid var(--cor);color:var(--cor);background:#fff;border-radius:999px;padding:10px 15px;cursor:pointer;text-decoration:none;font:inherit;font-size:15px;line-height:1.2}
+  .opcao:active{background:var(--cor);color:#fff}
+  a.opcao::after{content:" ↗";font-size:13px}
+  .digitando{display:flex;gap:4px;padding:15px 14px}
+  .digitando i{width:7px;height:7px;border-radius:50%;background:#9aa4ad;animation:pulo 1s infinite}
+  .digitando i:nth-child(2){animation-delay:.15s}
+  .digitando i:nth-child(3){animation-delay:.3s}
+  footer{display:flex;gap:8px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #dde2e6}
+  #texto{flex:1;min-width:0;border:1px solid #cfd6dc;border-radius:999px;padding:11px 16px;font:inherit;font-size:16px;outline:none}
+  #texto:focus{border-color:var(--cor)}
+  #enviar{width:46px;height:46px;border-radius:50%;border:0;background:var(--cor);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+  #zoom{position:fixed;inset:0;background:rgba(0,0,0,.92);display:none;z-index:9;overflow:auto;touch-action:pinch-zoom}
+  #zoom.on{display:block}
+  #zoom img{display:block;width:100%;min-height:100%;object-fit:contain;background:#fff}
+  #zoom button{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;width:44px;height:44px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:22px;cursor:pointer}
+  @keyframes in{from{opacity:0;transform:translateY(6px)}}
+  @keyframes pulo{0%,60%,100%{transform:none;opacity:.5}30%{transform:translateY(-4px);opacity:1}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="avatar" id="avatar">C</div>
+    <div class="tit"><b id="titulo">Atendimento</b><small id="subtitulo">online</small></div>
+    <button id="reiniciar" type="button">↺ Início</button>
+  </header>
+  <div id="demo" hidden>Prévia de demonstração. No site real, as mensagens vêm da sua planilha.</div>
+  <main id="chat" aria-live="polite"></main>
+  <footer>
+    <input id="texto" placeholder="Digite sua dúvida..." autocomplete="off" enterkeyhint="send">
+    <button id="enviar" type="button" aria-label="Enviar">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 20.5v-6l8-2.5-8-2.5v-6l19 8.5z"/></svg>
+    </button>
+  </footer>
+</div>
+<div id="zoom"><button type="button" aria-label="Fechar">×</button><img alt=""></div>
+
+<script>
+/* Usado só na prévia (fora do Google). No Apps Script fica null. */
+var DEMO = null;
+/* Endereço do Apps Script (termina em /exec). Preenchido na versão hospedada fora do Google. */
+var API = 'https://script.google.com/macros/s/AKfycbwXwayJzt5y2WCaSu5uSxwFUM-js4-PZ3sVvbAl3TrwNQZzPm9lgtT_JlYKuhHZ9ydZ6w/exec';
+
+var $ = function (id) { return document.getElementById(id); };
+var chat = $('chat');
+var DADOS = null, ocupado = false, caminho = [];
+var noGoogle = !!(window.google && google.script && google.script.run);
+
+function norm(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, function (c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
+function formatar(t) {
+  var h = esc(String(t).trim());
+  h = h.replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+  h = h.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+  return h.replace(/\n/g, '<br>');
+}
+function add(el) { chat.appendChild(el); chat.scrollTop = chat.scrollHeight; return el; }
+function bolha(cls, html) {
+  var d = document.createElement('div'); d.className = 'msg ' + cls; d.innerHTML = html; return add(d);
+}
+function espera(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+async function falar(texto) {
+  var t = document.createElement('div');
+  t.className = 'msg bot digitando'; t.innerHTML = '<i></i><i></i><i></i>';
+  add(t);
+  await espera(Math.min(450 + texto.length * 10, 1400));
+  t.remove();
+  bolha('bot', formatar(texto));
+}
+
+/* ---------- fotos ---------- */
+function urlsFoto(img) {
+  if (!noGoogle && !API) return ['imgs/' + img.nome];
+  if (!img.id) return [];
+  return ['https://drive.google.com/thumbnail?id=' + img.id + '&sz=w1600',
+          'https://lh3.googleusercontent.com/d/' + img.id + '=w1600'];
+}
+function foto(img) {
+  var urls = urlsFoto(img), box = document.createElement('div');
+  box.className = 'foto';
+  if (!urls.length) { box.className += ' erro'; box.textContent = '(imagem "' + img.nome + '" não encontrada)'; return add(box); }
+  var el = document.createElement('img'), i = 0;
+  el.alt = img.nome; el.loading = 'lazy';
+  el.onload = function () { chat.scrollTop = chat.scrollHeight; };
+  el.onerror = function () {
+    i++;
+    if (i < urls.length) el.src = urls[i];
+    else { box.className = 'foto erro'; box.textContent = '(não foi possível carregar a imagem "' + img.nome + '")'; }
+  };
+  el.src = urls[0];
+  var lupa = document.createElement('span'); lupa.textContent = '🔍 ampliar';
+  box.appendChild(el); box.appendChild(lupa);
+  box.onclick = function () {
+    if (box.classList.contains('erro')) return;
+    $('zoom').querySelector('img').src = el.currentSrc || el.src;
+    $('zoom').classList.add('on');
+  };
+  return add(box);
+}
+$('zoom').onclick = function () { $('zoom').classList.remove('on'); };
+
+/* ---------- botões ---------- */
+function resolver(d) {
+  var c = DADOS.config || {};
+  if (/^whatsapp$/i.test(d)) {
+    var n = String(c.whatsapp || '').replace(/\D/g, '');
+    return n ? 'https://wa.me/' + n + (c.whatsapp_mensagem ? '?text=' + encodeURIComponent(c.whatsapp_mensagem) : '') : '';
+  }
+  if (/^telefone$/i.test(d)) {
+    var t = String(c.telefone || '').replace(/\D/g, '');
+    return t ? 'tel:+' + t : '';
+  }
+  return d;
+}
+function ehLink(d) { return /^(https?:|tel:|mailto:)/i.test(d) || /^wa\.me\//i.test(d); }
+function limparOpcoes() { document.querySelectorAll('.opcoes').forEach(function (o) { o.remove(); }); }
+
+function mostrarOpcoes(botoes) {
+  if (!botoes || !botoes.length) return;
+  var box = document.createElement('div'); box.className = 'opcoes';
+  botoes.forEach(function (b) {
+    var el, dest = resolver(b.destino);
+    if (!dest) return;
+    if (ehLink(dest)) {
+      el = document.createElement('a');
+      el.href = /^wa\.me/i.test(dest) ? 'https://' + dest : dest;
+      el.target = '_blank'; el.rel = 'noopener';
+    } else {
+      el = document.createElement('button'); el.type = 'button';
+      el.onclick = function () {
+        if (ocupado) return;
+        limparOpcoes(); bolha('user', esc(b.texto)); ir(b.destino);
+      };
+    }
+    el.className = 'opcao'; el.textContent = b.texto;
+    box.appendChild(el);
+  });
+  add(box);
+}
+
+function inicioId() { return String(DADOS.config.inicio || 'inicio').trim(); }
+function inicioBotoes() { var e = DADOS.etapas[inicioId()]; return e ? e.botoes : []; }
+
+async function ir(id) {
+  ocupado = true;
+  id = String(id || '').trim();
+  var e = DADOS.etapas[id];
+  if (!e) {
+    await falar('Desculpe, não encontrei essa informação.');
+    ocupado = false; mostrarOpcoes(inicioBotoes()); return;
+  }
+  caminho.push(id);
+  if (e.registrar) registrar({ tipo: 'atendimento', etapa: id, caminho: caminho.slice() });
+  var partes = String(e.mensagem).split(/\n\s*---\s*\n/);
+  for (var i = 0; i < partes.length; i++) if (partes[i].trim()) await falar(partes[i]);
+  (e.imagens || []).forEach(foto);
+  ocupado = false;
+  mostrarOpcoes(e.botoes);
+}
+
+function procurar(texto) {
+  var t = ' ' + norm(texto) + ' ', melhor = null, pts = 0;
+  Object.keys(DADOS.etapas).forEach(function (k) {
+    var e = DADOS.etapas[k], p = 0;
+    String(e.palavras || '').split(/[,;\n]/).map(norm).filter(Boolean).forEach(function (kw) {
+      // palavras curtas (até 4 letras) só valem como palavra inteira
+      var achou = kw.length < 5 ? t.indexOf(' ' + kw + ' ') !== -1 : t.indexOf(kw) !== -1;
+      if (achou) p += kw.length;
+    });
+    if (p > pts) { pts = p; melhor = e.id; }
+  });
+  return melhor;
+}
+
+async function enviar() {
+  var v = $('texto').value.trim();
+  if (!v || ocupado || !DADOS) return;
+  $('texto').value = '';
+  limparOpcoes(); bolha('user', esc(v));
+  var id = procurar(v);
+  if (id) return ir(id);
+  registrar({ tipo: 'sem_resposta', texto: v });
+  ocupado = true;
+  await falar(DADOS.config.nao_entendi || 'Não entendi. Escolha uma das opções:');
+  ocupado = false;
+  mostrarOpcoes(inicioBotoes());
+}
+
+function aplicarConfig(c) {
+  if (c.cor) document.documentElement.style.setProperty('--cor', c.cor.trim());
+  if (c.titulo) {
+    $('titulo').textContent = c.titulo; document.title = c.titulo;
+    $('avatar').textContent = c.titulo.trim().charAt(0).toUpperCase();
+  }
+  $('subtitulo').textContent = c.subtitulo || 'online';
+  if (c.placeholder) $('texto').placeholder = c.placeholder;
+}
+
+function registrar(dados) {
+  try {
+    if (noGoogle) {
+      if (dados.tipo === 'atendimento') google.script.run.registrarAtendimento(dados.etapa, dados.caminho);
+      else google.script.run.registrarSemResposta(dados.texto);
+    } else if (API) {
+      fetch(API, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(dados) });
+    }
+  } catch (e) {}
+}
+
+function iniciar(d) { DADOS = d; aplicarConfig(d.config || {}); ir(inicioId()); }
+
+$('enviar').onclick = enviar;
+$('texto').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); enviar(); } });
+$('reiniciar').onclick = function () { if (ocupado || !DADOS) return; chat.innerHTML = ''; caminho = []; ir(inicioId()); };
+
+if (noGoogle) {
+  google.script.run
+    .withSuccessHandler(iniciar)
+    .withFailureHandler(function () { bolha('bot', 'Não foi possível carregar o atendimento. Tente novamente em instantes.'); })
+    .getDados();
+} else if (API) {
+  fetch(API + (API.indexOf('?') < 0 ? '?' : '&') + 'api=1', { credentials: 'omit' })
+    .then(function (r) { return r.json(); })
+    .then(iniciar)
+    .catch(function () { bolha('bot', 'Não foi possível carregar o atendimento. Verifique sua internet e tente novamente.'); });
+} else if (DEMO) {
+  $('demo').hidden = false;
+  iniciar(DEMO);
+} else {
+  bolha('bot', 'Esta página precisa ser aberta pelo link do Google Apps Script.');
+}
+</script>
+</body>
+</html>
